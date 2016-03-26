@@ -19,13 +19,13 @@ class webcrawler:
         self.http = http('fring.ccs.neu.edu')
         self.seen_profs = set()
         self.queue = []
-        self.skeys = []
+        self.skeys = set()
         self.c = 0
 
     def find_flags(self, page):
         flags = secret_key_regex.findall(page)
         if flags:
-            self.skeys.append(flags[0][-69:-5])
+            self.skeys.add(flags[0][-69:-5])
 
     def find_profiles(self, page):
         profs = profile_regex.findall(page)

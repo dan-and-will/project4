@@ -1,0 +1,19 @@
+For this project, we just went through the process of how we would traverse
+through Fakebook. We first dealt with logging in, and moved on from there
+to the actual crawling. We implemented a breadth first search that would add
+all the profiles on the home page, and then navigate to the first profile.
+Then, for that person it would go through all of their friends and add all
+unvisited urls to to the queue. Then the crawler would start again on the next
+profile. On every page that is visited, the crawler would check that page for 
+a flag. This process continues until all 5 flags are found.
+
+Some of the issues that we faced were dealing with was navigating through all
+of the friends' pages - we ultimately decided to count upwards page by page 
+until we hit a 404 - at that point we knew all of the pages had been traversed.
+Another was chunking. Figuring out a way to read from the socket until the whole
+page was read took some doing.
+
+We debugged by printing out relevant information about the state of the program
+right at crucial moments; for example, right before we were popping from an empty
+frontier queue, we checked the contents of the frontier after we added to it to
+make sure it was growing in the way that we intended.

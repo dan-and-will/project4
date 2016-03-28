@@ -4,37 +4,40 @@
 import re
 import sys
 
-from http import http
+from http import http, E404
 
 csrf_regex = re.compile(r"name='csrfmiddlewaretoken' value='[0-9a-f]{32}'")
-profile_regex = re.compile(r"\/fakebook\/\d{8,9}\/")
+profile_regex = re.compile(r"\/fakebook\/\d+\/")
 secret_key_regex = re.compile(r"<h2 class='secret_flag' style=\"color:red\">FLAG: [A-z\d]{64}<\/h2>")
-next_regex = re.compile(r"<a href=\"\/fakebook\/\d{8,9}\/friends\/\d\/\">next<\/a>")
 
 class webcrawler:
 
     def __init__(self, uname, pwd):
+        """seup the crawler
+        """
         self.uname = uname
         self.pwd = pwd
         self.http = http('fring.ccs.neu.edu')
         self.seen_profs = set()
-        self.queue = []
+        self.queue = set()
         self.skeys = set()
-        self.c = 0
 
-    def find_flags(self, page):
+    def find_flags(self, page, u):
+        """look for flags of profile page
+        """
         flags = secret_key_regex.findall(page)
         if flags:
             self.skeys.add(flags[0][-69:-5])
 
     def find_profiles(self, page):
-        profs = profile_regex.findall(page)
-        self.queue.extend(prof for prof in profs if prof not in self.seen_profs)
-
-    def has_next(self, friend_page):
-        return bool(next_regex.search(friend_page))
+        """look for other profiles on friends list
+        """
+        profs = set(profile_regex.findall(page)) - self.seen_profs
+        self.queue.update(profs)
 
     def login(self):
+        """handle login form
+        """
         login_page = self.http.get('/fakebook/')
         csrf_token = csrf_regex.findall(login_page)[0][-33:-1]
         form_data = "username={uname}&password={pwd}&csrfmiddlewaretoken={csrf}&next=%2Ffakebook%2F".format(uname=self.uname, pwd=self.pwd, csrf=csrf_token)
@@ -43,35 +46,39 @@ class webcrawler:
             raise Exception('You suck at loging in')
 
     def crawl_profile(self, prof_url):
-        self.c += 1
-        if self.c % 50 == 0:
-            print prof_url
+        """look for flags and friends on a profile
+        """
         profile = self.http.get(prof_url)
-        self.find_flags(profile)
+        self.find_flags(profile, prof_url)
         page_id = 1
         while True:
-            friends_page = self.http.get(prof_url + 'friends/{id}/'.format(id=page_id))
-            self.find_flags(friends_page)
+            try:
+                friends_page = self.http.get(prof_url + 'friends/{id}/'.format(id=page_id))
+            except E404:
+                break
+            self.find_flags(friends_page, prof_url + 'friends/{id}/'.format(id=page_id))
             self.find_profiles(friends_page)
             page_id += 1
-            if not self.has_next(friends_page):
-                break
 
     def crawl_site(self):
+        """handle scrawling all found profiles
+        """
         home_page = self.http.get('/fakebook/');
-        self.find_flags(home_page)
         self.find_profiles(home_page)
         while(len(self.skeys) < 5):
-            next_prof = self.queue.pop(0)
+            next_prof = self.queue.pop()
             self.seen_profs.add(next_prof)
             self.crawl_profile(next_prof)
 
     def run(self):
+        """handle running logger and printing flags
+        """
         self.login()
         self.crawl_site()
         print "\n".join(self.skeys)
-        print self.skeys
 
 if __name__ == '__main__':
+    """read command line args and run crawler
+    """
     wc = webcrawler(sys.argv[1], sys.argv[2])
     wc.run()
